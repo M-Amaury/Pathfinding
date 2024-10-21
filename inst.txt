@@ -1,0 +1,24 @@
+J'ai besoin de faire un projet de pathfinding pour passer entre des mines voici le cahier des charges : 
+"General goal
+
+Having a piece of software that allows users to finds safe paths to go from A to B safely, circling around known mines.
+
+
+List of specifications
+
+Being able to enter new mine coordinates live and having them be taken into consideration immediately.
+
+Showing different paths to the users with an estimate distance at the start and letting them choose.
+
+If not too complex, having a live GPS view (google maps-style). If too complex, have a list of instructions (walk 100m, turn left and walk for 10m etc), using open-sourced maps.
+
+Have it work on either a phone (android or iOS) or web-app or standalone PC software."
+
+
+Je vais te donner une structure de base pour une application web qui permet de calculer des chemins sécurisés en évitant les mines et fournit des instructions pas à pas. Cette version n'inclura pas encore la carte visuelle (GPS style Google Maps), mais te fournira une base solide pour les instructions de navigation.
+
+Plan du projet
+1. Technologies utilisées :
+Frontend : HTML, CSS, JavaScript (avec framework React pour une interface dynamique).
+Backend : Node.js avec Express (pour gérer les calculs de chemin et les mines).
+Algorithme de pathfinding : Utilisation de l'algorithme A* pour calculer le chemin optimal.
