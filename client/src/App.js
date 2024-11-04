@@ -1,6 +1,6 @@
 // client/src/App.js
 import React, { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents, Polyline } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents, Polyline, Circle } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import './App.css';
 import L from 'leaflet';
@@ -25,17 +25,20 @@ function MapClickHandler({ onMapClick }) {
 }
 
 function App() {
-  const [start, setStart] = useState([48.8566, 2.3522]); // Format [lat, lng]
-  const [end, setEnd] = useState([48.8566, 2.3622]); // Format [lat, lng]
+  const [start, setStart] = useState([49.3775, 40.0590]); // Format [lat, lng]49.377543, 40.059000
+  const [end, setEnd] = useState([49.3847, 40.0790]); // Format [lat, lng]49.384710, 40.079024
   const [mines, setMines] = useState([]);
   const [path, setPath] = useState([]);
   const [newMine, setNewMine] = useState({ lat: '', lng: '' });
-  const [mapCenter] = useState([48.8566, 2.3522]);
+  const [mapCenter] = useState([49.3775, 40.0590]);
+  
   const [mapZoom] = useState(13);
   const [placementMode, setPlacementMode] = useState('none'); // 'none', 'start', 'end', 'mine'
   const [routePath, setRoutePath] = useState([]); // Initialiser avec un tableau vide
   const [routeInfo, setRouteInfo] = useState(null);
   const [selectedMineType, setSelectedMineType] = useState('PFM-1');
+  const [paths, setPaths] = useState([]); // Pour stocker les différents chemins
+  const [selectedPathIndex, setSelectedPathIndex] = useState(null);
 
   useEffect(() => {
     fetchMines();
@@ -123,7 +126,7 @@ function App() {
     }
   };
 
-  const calculatePath = async () => {
+  const calculatePaths = async () => {
     try {
       const response = await fetch('http://localhost:5000/api/path', {
         method: 'POST',
@@ -135,26 +138,34 @@ function App() {
         }),
       });
       const data = await response.json();
-      if (data.path) {
-        setPath(data.path.instructions || []);
-        setRoutePath(data.path.coordinates || []);
+      if (data.paths && data.paths.length > 0) {
+        setPaths(data.paths);
+        setSelectedPathIndex(0); // Sélectionner le premier chemin par défaut
+        setRoutePath(data.paths[0].coordinates);
         setRouteInfo({
-          distance: (data.path.distance / 1000).toFixed(2),
-          duration: Math.round(data.path.duration / 60)
+          distance: (data.paths[0].distance / 1000).toFixed(2),
+          duration: Math.round(data.paths[0].duration / 60)
         });
       } else {
-        setPath([]);
+        setPaths([]);
+        setSelectedPathIndex(null);
         setRoutePath([]);
         setRouteInfo(null);
         alert("Impossible de trouver un chemin sûr. Veuillez essayer un autre itinéraire.");
       }
     } catch (error) {
-      console.error("Erreur lors du calcul du chemin:", error);
-      setPath([]);
-      setRoutePath([]);
-      setRouteInfo(null);
-      alert("Erreur lors du calcul de l'itinéraire");
+      console.error("Erreur lors du calcul des chemins:", error);
+      alert("Erreur lors du calcul des itinéraires");
     }
+  };
+
+  const selectPath = (index) => {
+    setSelectedPathIndex(index);
+    setRoutePath(paths[index].coordinates);
+    setRouteInfo({
+      distance: (paths[index].distance / 1000).toFixed(2),
+      duration: Math.round(paths[index].duration / 60)
+    });
   };
 
   const mineIcon = new L.Icon({
@@ -252,7 +263,28 @@ function App() {
         <button onClick={addMine}>Ajouter</button>
       </div>
 
-      <button onClick={calculatePath}>Calculer le chemin</button>
+      <button onClick={calculatePaths}>Calculer les chemins</button>
+
+      <div className="paths-container">
+        <h2>Chemins disponibles</h2>
+        {paths.length > 0 ? (
+          <div className="paths-list">
+            {paths.map((path, index) => (
+              <div 
+                key={index} 
+                className={`path-option ${selectedPathIndex === index ? 'selected' : ''}`}
+                onClick={() => selectPath(index)}
+              >
+                <h3>Chemin {index + 1}</h3>
+                <p>Distance : {(path.distance / 1000).toFixed(2)} km</p>
+                <p>Durée estimée : {Math.round(path.duration / 60)} minutes</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p>Aucun chemin calculé</p>
+        )}
+      </div>
 
       <div>
         <h2>Mines</h2>
@@ -307,9 +339,9 @@ function App() {
           
           <MapClickHandler onMapClick={handleMapClick} />
           
-          {Array.isArray(routePath) && routePath.length > 0 && (
+          {selectedPathIndex !== null && paths[selectedPathIndex] && (
             <Polyline
-              positions={routePath}
+              positions={paths[selectedPathIndex].coordinates}
               color="blue"
               weight={3}
               opacity={0.7}
@@ -324,20 +356,30 @@ function App() {
             <Popup>Point d'arrivée</Popup>
           </Marker>
 
-          {Array.isArray(mines) && mines.map((mine, index) => (
-            <Marker 
-              key={index} 
-              position={[mine.lat, mine.lng]} 
-              icon={mine.type === 'PFM-1' ? pfmIcon : tmIcon}
-            >
-              <Popup>
-                Mine {mine.type} {index + 1}
-                <br />
-                Rayon d'action : {mine.type === 'PFM-1' ? '1m' : '10m'}
-                <br />
-                <button onClick={() => removeMine(index)}>Supprimer</button>
-              </Popup>
-            </Marker>
+          {mines.map((mine, index) => (
+            <React.Fragment key={index}>
+              <Marker 
+                position={[mine.lat, mine.lng]} 
+                icon={mine.type === 'PFM-1' ? pfmIcon : tmIcon}
+              >
+                <Popup>
+                  Mine {mine.type} {index + 1}
+                  <br />
+                  Rayon d'action : {mine.type === 'PFM-1' ? '5m' : '20m'}
+                  <br />
+                  <button onClick={() => removeMine(index)}>Supprimer</button>
+                </Popup>
+              </Marker>
+              <Circle
+                center={[mine.lat, mine.lng]}
+                radius={mine.type === 'PFM-1' ? 5 : 20}
+                pathOptions={{
+                  color: mine.type === 'PFM-1' ? 'orange' : 'red',
+                  fillColor: mine.type === 'PFM-1' ? 'orange' : 'red',
+                  fillOpacity: 0.2
+                }}
+              />
+            </React.Fragment>
           ))}
         </MapContainer>
       </div>

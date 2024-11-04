@@ -18,8 +18,12 @@ app.use((req, res, next) => {
 // Route pour obtenir les instructions
 app.post('/api/path', (req, res) => {
   const { start, end, minesList } = req.body;
-  const path = pathfinding.findPath(start, end, minesList);
-  res.json({ path });
+  const paths = pathfinding.findPaths(start, end, minesList);
+  if (paths && paths.length > 0) {
+    res.json({ paths: paths });
+  } else {
+    res.json({ paths: [] });
+  }
 });
 
 // Route pour ajouter des mines
